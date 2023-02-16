@@ -1,28 +1,51 @@
 #!/usr/bin/env groovy
 
 pipeline {
-    agent none
+    agent any
+    tools {
+        maven 'Maven'
+    }
     stages {
-        stage('build') {
+        stage('increment version') {
             steps {
                 script {
-                    echo "Building the application..."
+                    echo 'incrementing app version...'
+                    sh 'mvn build-helper:parse-version versions:set \
+                        -DnewVersion=\\\${parsedVersion.majorVersion}.\\\${parsedVersion.minorVersion}.\\\${parsedVersion.nextIncrementalVersion} \
+                        versions:commit'
+                    def matcher = readFile('pom.xml') =~ '<version>(.+)</version>'
+                    def version = matcher[0][1]
+                    env.IMAGE_NAME = "$version-$BUILD_NUMBER"
                 }
             }
         }
-        stage('test') {
+        stage('build app') {
             steps {
                 script {
-                    echo "Testing the application..."
+                    echo "building the application..."
+                    sh 'mvn clean package'
+                }
+            }
+        }
+        stage('build image') {
+            steps {
+                script {
+                    echo "building the docker image..."
+                    withCredentials([usernamePassword(credentialsId: 'docker-cred', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                        sh "docker build -t awaiskhurshid/java-maven-app:${IMAGE_NAME} ."
+                        sh "echo $PASS | docker login -u $USER --password-stdin"
+                        sh "docker push awaiskhurshid/java-maven-app:${IMAGE_NAME}"
+                    }
                 }
             }
         }
         stage('deploy') {
             steps {
                 script {
-                    echo "Deploying the application..."
+                    echo 'deploying docker image to EC2...'
                 }
             }
         }
+        
     }
 }
