@@ -50,7 +50,7 @@ pipeline {
                         sh "git remote set-url origin https://${USER}:${PASS}@github.com:awaiskhurshid-ak/jenkins-jobs.git"
                         sh 'git add .'
                         sh 'git commit -m "ci: version bump"'
-                        sh 'git push'
+                        sh 'git push origin main'
                     }
                 }
             }
